@@ -4,6 +4,33 @@
   
   
   <entry>
+    <title>log4j2审计</title>
+    <link href="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/"/>
+    <url>/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/</url>
+    
+    <content type="html"><![CDATA[<h2 id="环境搭建"><a href="#环境搭建" class="headerlink" title="环境搭建"></a>环境搭建</h2><p>使用jdk8u121创建普通的javaEE项目，先导入log4j-core和log4j-api的依赖</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/1.png" class=""><p>然后在resources中写入配置文件</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/2.png" class=""><?xml version="1.0" encoding="UTF-8"?><Configuration status="WARN">    <Appenders>        <Console name="Console" target="SYSTEM_OUT">            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n"/>        </Console>    </Appenders>    <Loggers>        <Root level="info">            <AppenderRef ref="Console"/>        </Root>    </Loggers></Configuration><p>写入代码进行测试</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/3.png" class=""><h2 id="漏洞复现"><a href="#漏洞复现" class="headerlink" title="漏洞复现"></a>漏洞复现</h2><p>首先在本地起一个ldap服务</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/4.png" class=""><p>参数可控的情况下，进行jndi注入</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/5.png" class=""><h2 id="代码审计"><a href="#代码审计" class="headerlink" title="代码审计"></a>代码审计</h2><p>反推，已知存在jndi注入，使用直接在InitialContext类的lookup方法打断点</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/6.png" class=""><p>调试的时候发现StrSubstitutor.class里面不仅支持jndi协议，还支持其他协议，例如${java:os}</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/7.png" class=""><p>后面都是lookup操作，直到最后真正调用了断点那里的lookup()</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/8.png" class=""><p>需要注意的是前面存在一个解析的方法StrSubstitutor.class，方法名是substitute，参数buf为原始字符串：${jndi:ip&#x2F;payload}</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/log4j2/log4j2/9.png" class=""><h2 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h2><p>resolveVariable方法会检查变量是否以jndi:开头，如果是，则会调用initialContext类的lookup方法来解析JNDI表达式。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>java代码审计</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>笔记</tag>
+      
+      <tag>教程</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>shiro550审计</title>
     <link href="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/"/>
     <url>/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/</url>
@@ -13,7 +40,7 @@
     
     <categories>
       
-      <category>学习笔记</category>
+      <category>java代码审计</category>
       
     </categories>
     
@@ -40,7 +67,7 @@
     
     <categories>
       
-      <category>学习笔记</category>
+      <category>java代码审计</category>
       
     </categories>
     
