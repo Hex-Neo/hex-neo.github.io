@@ -4,6 +4,33 @@
   
   
   <entry>
+    <title>shiro550审计</title>
+    <link href="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/"/>
+    <url>/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/</url>
+    
+    <content type="html"><![CDATA[<h2 id="环境搭建"><a href="#环境搭建" class="headerlink" title="环境搭建"></a>环境搭建</h2><p>直接导入shiro依赖</p><h2 id="代码审计"><a href="#代码审计" class="headerlink" title="代码审计"></a>代码审计</h2><p>CookieRememberMeManager.class这个类里面有个方法是rememberSerializedIdentity，这个方法的功能应该是对用户信息的序列化文件进行base64编码并且发送给用户，这一功能的实现应该是在登录的时候，点击了“记住我”，服务端返回的信息set-Cookie请求头里面</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/2.png" class=""><p>getRememberedSerializedIdentity 这个方法应该是从用户那里读取cookie</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/3.png" class=""><p>还是在这个类里面对cookie进行了base64解码，接下来是aes解密，但是这里并没有解密相关信息，所以就要去找是谁调用了getRememberedSerializedIdentity这个方法</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/4.png" class=""><p>在getRememberedPrincipals方法中发现调用了getRememberedSerializedIdentity，所以跟进convertBytesToPrincipals查看</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/5.png" class=""><p>继续跟进decrypt方法</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/6.png" class=""><p>就是这里进行解密的，其中this.getDecryptionCipherKey()就是aes默认密钥</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/7.png" class=""><p>跟进去就会发现这里存在默认的密钥</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/8.png" class=""><p>在shiro\io\DefaultSerializer.class下面deserialize方法会对AES解密的数据进行反序列化操作</p><img src="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/shiro/shiro550/9.png" class=""><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Shiro550漏洞：由于AES密钥直接硬编码在代码中，所以可以对恶意的序列化信息进行AES加密，然后进行base64编码，替换cookie进行攻击，服务端收到cookie后会在deserialize方法中调用readObject方法进行反序列化</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>学习笔记</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>笔记</tag>
+      
+      <tag>教程</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>fastjson1.2.24审计</title>
     <link href="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/"/>
     <url>/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/fastjson/fastjson1-2-24%E5%AE%A1%E8%AE%A1/</url>
