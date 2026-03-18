@@ -1,0 +1,876 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="hex">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="sql注入原理以及复现代码审计核心思路：JDBC中是否直接拼接参数，mybatis中是否直接使用{}，尤其是查询语句。 审计方法：全局搜String sql或者{ JDBC漏洞代码 示例1：产生原因：直接将用户输入的参数拼接进sql语句，导致存在sql注入攻击 12345678public String vul1(String id) &#123;    Class.forName(&quot;c">
+<meta property="og:type" content="article">
+<meta property="og:title" content="回归基本功">
+<meta property="og:url" content="https://hex-neo.github.io/2026/03/18/java%E5%AE%89%E5%85%A8/%E5%9B%9E%E5%BD%92%E5%9F%BA%E6%9C%AC%E5%8A%9F/index.html">
+<meta property="og:site_name" content="hex">
+<meta property="og:description" content="sql注入原理以及复现代码审计核心思路：JDBC中是否直接拼接参数，mybatis中是否直接使用{}，尤其是查询语句。 审计方法：全局搜String sql或者{ JDBC漏洞代码 示例1：产生原因：直接将用户输入的参数拼接进sql语句，导致存在sql注入攻击 12345678public String vul1(String id) &#123;    Class.forName(&quot;c">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-18T09:21:29.000Z">
+<meta property="article:modified_time" content="2026-03-18T09:23:03.095Z">
+<meta property="article:author" content="hex">
+<meta property="article:tag" content="教程">
+<meta property="article:tag" content="笔记">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>回归基本功 - hex</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"hex-neo.github.io","root":"/","version":"1.9.9","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"expand_all":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"openkounter":{"server_url":"https://open-kounter.mintimate.cn","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 8.1.1"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>笔记</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content (desktop) -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile grid menu overlay -->
+<div id="mobile-grid-menu" class="d-lg-none">
+  <div class="mobile-grid-menu-inner">
+    <div class="container">
+      <div class="row">
+        
+          
+          
+          
+          
+            <div class="col-4 mobile-grid-cell">
+              <a href="/" target="_self">
+                <div class="mobile-grid-item">
+                  <i class="iconfont icon-home-fill"></i>
+                  <span>首页</span>
+                </div>
+              </a>
+            </div>
+          
+        
+          
+          
+          
+          
+            <div class="col-4 mobile-grid-cell">
+              <a href="/archives/" target="_self">
+                <div class="mobile-grid-item">
+                  <i class="iconfont icon-archive-fill"></i>
+                  <span>归档</span>
+                </div>
+              </a>
+            </div>
+          
+        
+          
+          
+          
+          
+            <div class="col-4 mobile-grid-cell">
+              <a href="/categories/" target="_self">
+                <div class="mobile-grid-item">
+                  <i class="iconfont icon-category-fill"></i>
+                  <span>分类</span>
+                </div>
+              </a>
+            </div>
+          
+        
+          
+          
+          
+          
+            <div class="col-4 mobile-grid-cell">
+              <a href="/tags/" target="_self">
+                <div class="mobile-grid-item">
+                  <i class="iconfont icon-tags-fill"></i>
+                  <span>标签</span>
+                </div>
+              </a>
+            </div>
+          
+        
+          
+          
+          
+          
+            <div class="col-4 mobile-grid-cell">
+              <a href="/about/" target="_self">
+                <div class="mobile-grid-item">
+                  <i class="iconfont icon-user-fill"></i>
+                  <span>关于</span>
+                </div>
+              </a>
+            </div>
+          
+        
+        
+          <div class="col-4 mobile-grid-cell" id="mobile-search-btn">
+            <a href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <div class="mobile-grid-item">
+                <i class="iconfont icon-search"></i>
+                <span>搜索</span>
+              </div>
+            </a>
+          </div>
+        
+        
+          <div class="col-4 mobile-grid-cell" id="mobile-color-toggle-btn"
+               data-label-light="开灯"
+               data-label-dark="关灯">
+            <a href="javascript:;" aria-label="Color Toggle">
+              <div class="mobile-grid-item">
+                <i class="iconfont icon-dark" id="mobile-color-toggle-icon"></i>
+                <span id="mobile-color-toggle-label">关灯</span>
+              </div>
+            </a>
+          </div>
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="回归基本功"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-18 17:21" pubdate>
+          2026年3月18日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          9.7k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          81 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">回归基本功</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h2 id="sql注入原理以及复现"><a href="#sql注入原理以及复现" class="headerlink" title="sql注入原理以及复现"></a>sql注入原理以及复现</h2><h3 id="代码审计"><a href="#代码审计" class="headerlink" title="代码审计"></a>代码审计</h3><p>核心思路：JDBC中是否直接拼接参数，mybatis中是否直接使用{}，尤其是查询语句。 审计方法：全局搜String sql或者{</p>
+<h4 id="JDBC"><a href="#JDBC" class="headerlink" title="JDBC"></a>JDBC</h4><h5 id="漏洞代码-示例1："><a href="#漏洞代码-示例1：" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h5><p>产生原因：直接将用户输入的参数拼接进sql语句，导致存在sql注入攻击</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">vul1</span><span class="hljs-params">(String id)</span> &#123;<br>    Class.forName(<span class="hljs-string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>);<br>    <span class="hljs-type">Connection</span> <span class="hljs-variable">conn</span> <span class="hljs-operator">=</span> DriverManager.getConnection(db_url, db_user, db_pass);<br><br>    <span class="hljs-type">Statement</span> <span class="hljs-variable">stmt</span> <span class="hljs-operator">=</span> conn.createStatement();<br>    <span class="hljs-type">String</span> <span class="hljs-variable">sql</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;select * from users where id = &#x27;&quot;</span> + id + <span class="hljs-string">&quot;&#x27;&quot;</span>;<br>    <span class="hljs-type">ResultSet</span> <span class="hljs-variable">rs</span> <span class="hljs-operator">=</span> stmt.executeQuery(sql);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h5 id="漏洞代码-示例2："><a href="#漏洞代码-示例2：" class="headerlink" title="漏洞代码 示例2："></a>漏洞代码 示例2：</h5><p>产生原因：JDBCTemplate是Spring对JDBC的封装，如果使用拼接语句便会产生注入。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> Map&lt;String, Object&gt; <span class="hljs-title function_">vul3</span><span class="hljs-params">(String id)</span> &#123;<br>    <span class="hljs-type">DriverManagerDataSource</span> <span class="hljs-variable">dataSource</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">DriverManagerDataSource</span>();<br>    dataSource.setDriverClassName(<span class="hljs-string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>);<br>    dataSource.setUrl(db_url);<br>    dataSource.setUsername(db_user);<br>    dataSource.setPassword(db_pass);<br><br>    <span class="hljs-type">JdbcTemplate</span> <span class="hljs-variable">jdbctemplate</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JdbcTemplate</span>(dataSource);<br><br>    <span class="hljs-type">String</span> <span class="hljs-variable">sql</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;select * from users where id = &quot;</span> + id;<br><br>    <span class="hljs-comment">// 安全代码：使用参数化查询，避免SQL注入风险</span><br>    <span class="hljs-comment">// String sql = &quot;select * from users where id = ?&quot;;</span><br><br>    <span class="hljs-keyword">return</span> jdbctemplate.queryForMap(sql);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h5 id="安全代码-示例1："><a href="#安全代码-示例1：" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h5><p>进行预编译，通过占位符来防止sql注入</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">safe1</span><span class="hljs-params">(String id)</span> &#123;<br>    Class.forName(<span class="hljs-string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>);<br>    <span class="hljs-type">Connection</span> <span class="hljs-variable">conn</span> <span class="hljs-operator">=</span> DriverManager.getConnection(db_url, db_user, db_pass);<br>    <span class="hljs-type">String</span> <span class="hljs-variable">sql</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;select * from users where id = ?&quot;</span>;<br>    <span class="hljs-type">PreparedStatement</span> <span class="hljs-variable">st</span> <span class="hljs-operator">=</span> conn.prepareStatement(sql);<br>    st.setString(<span class="hljs-number">1</span>, id);<br>    <span class="hljs-type">ResultSet</span> <span class="hljs-variable">rs</span> <span class="hljs-operator">=</span> st.executeQuery();<br>&#125;<br>           <br></code></pre></td></tr></table></figure>
+
+<h5 id="安全代码-示例2："><a href="#安全代码-示例2：" class="headerlink" title="安全代码 示例2："></a>安全代码 示例2：</h5><p>采用第三方组件，可以有效降低sql注入的风险</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">safe3</span><span class="hljs-params">(String id)</span> &#123;<br>    Codec&lt;Character&gt; oracleCodec = <span class="hljs-keyword">new</span> <span class="hljs-title class_">OracleCodec</span>();<br><br>    <span class="hljs-type">Statement</span> <span class="hljs-variable">stmt</span> <span class="hljs-operator">=</span> conn.createStatement();<br>    <span class="hljs-type">String</span> <span class="hljs-variable">sql</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;select * from users where id = &#x27;&quot;</span> + ESAPI.encoder().encodeForSQL(oracleCodec, id) + <span class="hljs-string">&quot;&#x27;&quot;</span>;<br><br>    <span class="hljs-type">ResultSet</span> <span class="hljs-variable">rs</span> <span class="hljs-operator">=</span> stmt.executeQuery(sql);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="mybatis"><a href="#mybatis" class="headerlink" title="mybatis"></a>mybatis</h4><h5 id="漏洞代码-示例1：-1"><a href="#漏洞代码-示例1：-1" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h5><p>产生原因：由于使用 #{} 会将对象转成字符串，形成order by “user” desc造成错误，因此很多开发人员会采用 ${} 来解决，从而造成SQL注入。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@GetMapping(&quot;/vul/order&quot;)</span><br><span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title function_">orderBy</span><span class="hljs-params">(String field, String sort)</span> &#123;<br>    <span class="hljs-keyword">return</span> userMapper.orderBy(field, sort);<br>&#125;<br><br><span class="hljs-comment">// 不安全的注解写法</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">UserMapper</span> &#123;<br>    <span class="hljs-meta">@Select(&quot;select * from users order by $&#123;field&#125; $&#123;sort&#125;&quot;)</span><br>    List&lt;User&gt; <span class="hljs-title function_">orderBy</span><span class="hljs-params">(<span class="hljs-meta">@Param(&quot;field&quot;)</span> String field, <span class="hljs-meta">@Param(&quot;sort&quot;)</span> String sort)</span>;<br>&#125;<br><br><span class="hljs-comment">// 不安全的XML映射写法</span><br>&lt;select id=<span class="hljs-string">&quot;orderBy&quot;</span> resultType=<span class="hljs-string">&quot;com.best.hello.entity.User&quot;</span>&gt;<br>    select * from users order by $&#123;field&#125; $&#123;sort&#125;<br>&lt;/select&gt;<br></code></pre></td></tr></table></figure>
+
+<h5 id="安全代码-示例1：-1"><a href="#安全代码-示例1：-1" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h5><p>使用 ${} 本身是存在注入的，但由于强制使用Integer或long类型导致无法注入</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@GetMapping(&quot;/safe/id/&#123;id&#125;&quot;)</span><br><span class="hljs-keyword">public</span> List&lt;User&gt; <span class="hljs-title function_">queryById</span><span class="hljs-params">(<span class="hljs-meta">@PathVariable</span> Integer id)</span> &#123;<br>    <span class="hljs-keyword">return</span> userMapper.queryByIdAsInterger(id);<br>&#125;<br><br><span class="hljs-meta">@Select(&quot;select * from users where id = $&#123;id&#125;&quot;)</span><br>List&lt;User&gt; <span class="hljs-title function_">queryByIdAsInterger</span><span class="hljs-params">(<span class="hljs-meta">@Param(&quot;id&quot;)</span> Integer id)</span>;<br></code></pre></td></tr></table></figure>
+
+<h2 id="文件上传漏洞原理"><a href="#文件上传漏洞原理" class="headerlink" title="文件上传漏洞原理"></a>文件上传漏洞原理</h2><h3 id="代码审计-1"><a href="#代码审计-1" class="headerlink" title="代码审计"></a>代码审计</h3><p>主要是检查是否存在过滤等</p>
+<h4 id="漏洞代码-示例1：-2"><a href="#漏洞代码-示例1：-2" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p>产生原因：并没有进行过滤</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@PostMapping(&quot;/uploadVul&quot;)</span><br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">uploadVul</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam(&quot;file&quot;)</span> MultipartFile file)</span> &#123;<br>    <span class="hljs-keyword">try</span> &#123;<br>        <span class="hljs-type">byte</span>[] bytes = file.getBytes();<br>        <span class="hljs-type">Path</span> <span class="hljs-variable">dir</span> <span class="hljs-operator">=</span> Paths.get(UPLOADED_FOLDER);<br>        <span class="hljs-type">Path</span> <span class="hljs-variable">path</span> <span class="hljs-operator">=</span> Paths.get(UPLOADED_FOLDER + file.getOriginalFilename());<br>        Files.write(path, bytes);<br>    &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>         <span class="hljs-keyword">return</span> e.toString();<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;redirect:uploadStatus&quot;</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例1：-2"><a href="#安全代码-示例1：-2" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h4><p>白名单校验</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">isValidFileType</span><span class="hljs-params">(String fileName)</span> &#123;<br>    String[] allowedTypes = &#123;<span class="hljs-string">&quot;jpg&quot;</span>, <span class="hljs-string">&quot;jpeg&quot;</span>, <span class="hljs-string">&quot;png&quot;</span>, <span class="hljs-string">&quot;gif&quot;</span>, <span class="hljs-string">&quot;bmp&quot;</span>, <span class="hljs-string">&quot;ico&quot;</span>&#125;;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">extension</span> <span class="hljs-operator">=</span> StringUtils.getFilenameExtension(fileName);<br>    <span class="hljs-keyword">if</span> (extension != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-keyword">for</span> (String allowedType : allowedTypes) &#123;<br>            <span class="hljs-keyword">if</span> (allowedType.equalsIgnoreCase(extension)) &#123;<br>                <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>            &#125;<br>        &#125;<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="任意文件下载漏洞原理"><a href="#任意文件下载漏洞原理" class="headerlink" title="任意文件下载漏洞原理"></a>任意文件下载漏洞原理</h2><h3 id="代码审计-2"><a href="#代码审计-2" class="headerlink" title="代码审计"></a>代码审计</h3><h4 id="漏洞代码-示例1：-3"><a href="#漏洞代码-示例1：-3" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p>产生原因：文件路径没做限制，可通过..&#x2F;递归下载任意文件</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">download</span><span class="hljs-params">(String filename, HttpServletResponse response)</span> &#123;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">filePath</span> <span class="hljs-operator">=</span> System.getProperty(<span class="hljs-string">&quot;user.dir&quot;</span>) + <span class="hljs-string">&quot;/logs/&quot;</span> + filename;<br>    <span class="hljs-keyword">try</span> (<span class="hljs-type">InputStream</span> <span class="hljs-variable">inputStream</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">BufferedInputStream</span>(Files.newInputStream(Paths.get(filePath)))) &#123;<br>        response.setHeader(<span class="hljs-string">&quot;Content-Disposition&quot;</span>, <span class="hljs-string">&quot;attachment; filename=&quot;</span> + filename);<br>        response.setContentLength((<span class="hljs-type">int</span>) Files.size(Paths.get(filePath)));<br>        response.setContentType(<span class="hljs-string">&quot;application/octet-stream&quot;</span>);<br><br>        IOUtils.copy(inputStream, response.getOutputStream());<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;下载文件成功：&quot;</span> + filePath;<br>    &#125; <span class="hljs-keyword">catch</span> (IOException e) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;未找到文件：&quot;</span> + filePath;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例1：-3"><a href="#安全代码-示例1：-3" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h4><p>检测是否存在.. &#x2F;等元素</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">checkTraversal</span><span class="hljs-params">(String content)</span> &#123;<br>    <span class="hljs-keyword">return</span> content.contains(<span class="hljs-string">&quot;../&quot;</span>) || content.contains(<span class="hljs-string">&quot;./&quot;</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例2：-1"><a href="#安全代码-示例2：-1" class="headerlink" title="安全代码 示例2："></a>安全代码 示例2：</h4><p>使用normalize()方法进行路径规范化，可以将路径中的特殊字符转义</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">safe2</span><span class="hljs-params">(String filename)</span> &#123;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">filePath</span> <span class="hljs-operator">=</span> System.getProperty(<span class="hljs-string">&quot;user.dir&quot;</span>) + <span class="hljs-string">&quot;/logs/&quot;</span> + filename;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">filePathSafe</span> <span class="hljs-operator">=</span> Paths.get(filePath).normalize().toString();<br>    ...<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例3："><a href="#安全代码-示例3：" class="headerlink" title="安全代码 示例3："></a>安全代码 示例3：</h4><p>参数化查询</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 对文件名做映射生成id值，通过参数化下载文件可以有效防止遍历问题</span><br><span class="hljs-comment"> * 需要注意：控制用户权限，避免通过遍历下载文件（越权）</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">download</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam(&quot;id&quot;)</span> String id, HttpServletResponse response)</span> &#123;<br>    <span class="hljs-keyword">try</span> &#123;<br>        <span class="hljs-type">String</span> <span class="hljs-variable">fileName</span> <span class="hljs-operator">=</span> fileMappingService.getFileNameById(id);<br>        fileStorageService.download(id, fileName, response);<br>    &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>        log.error(<span class="hljs-string">&quot;下载文件失败&quot;</span>, e);<br>        response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());<br>    &#125;<br>&#125;<br>   <br></code></pre></td></tr></table></figure>
+
+<h2 id="路径遍历漏洞原理"><a href="#路径遍历漏洞原理" class="headerlink" title="路径遍历漏洞原理"></a>路径遍历漏洞原理</h2><h3 id="代码审计-3"><a href="#代码审计-3" class="headerlink" title="代码审计"></a>代码审计</h3><p>和任意文件下载差不多</p>
+<h4 id="漏洞代码-示例1：-4"><a href="#漏洞代码-示例1：-4" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p>产生原因：没用对特殊字符进行过滤</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">fileList</span><span class="hljs-params">(String filename)</span> &#123;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">filePath</span> <span class="hljs-operator">=</span> System.getProperty(<span class="hljs-string">&quot;user.dir&quot;</span>) + <span class="hljs-string">&quot;/logs/&quot;</span> + filename;<br>    <span class="hljs-type">StringBuilder</span> <span class="hljs-variable">sb</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">StringBuilder</span>();<br><br>    <span class="hljs-type">File</span> <span class="hljs-variable">f</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">File</span>(filePath);<br>    File[] fs = f.listFiles();<br><br>    <span class="hljs-keyword">if</span> (fs != <span class="hljs-literal">null</span>) &#123;<br>        <span class="hljs-keyword">for</span> (File ff : fs) &#123;<br>            sb.append(ff.getName()).append(<span class="hljs-string">&quot;&lt;br&gt;&quot;</span>);<br>        &#125;<br>        <span class="hljs-keyword">return</span> sb.toString();<br>    &#125;<br>    <span class="hljs-keyword">return</span> filePath + <span class="hljs-string">&quot;目录不存在！&quot;</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码："><a href="#安全代码：" class="headerlink" title="安全代码："></a>安全代码：</h4><p>参考任意文件下载<br> <a href="#%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E4%B8%8B%E8%BD%BD%E6%BC%8F%E6%B4%9E%E5%8E%9F%E7%90%86">任意文件下载漏洞原理</a></p>
+<h2 id="XSS漏洞原理"><a href="#XSS漏洞原理" class="headerlink" title="XSS漏洞原理"></a>XSS漏洞原理</h2><h3 id="代码审计-4"><a href="#代码审计-4" class="headerlink" title="代码审计"></a>代码审计</h3><p>存储与反射类似，不过是是否很数据库有交互</p>
+<h4 id="漏洞代码-示例1：-5"><a href="#漏洞代码-示例1：-5" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p>产生原因：未对用户输入内容进行实体转义</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@RequestMapping(&quot;/xss&quot;)</span>  <br><span class="hljs-meta">@ResponseBody</span>  <br><span class="hljs-meta">@Override</span>  <br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">vuln</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam(&quot;id&quot;)</span> String id)</span> &#123;  <br>  <br>    <span class="hljs-keyword">if</span> (id == <span class="hljs-literal">null</span> || id == <span class="hljs-string">&quot;&quot;</span>) &#123;  <br>        <span class="hljs-type">JSONObject</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();  <br>        result.put(<span class="hljs-string">&quot;data&quot;</span>, <span class="hljs-string">&quot;请输入内容，参数为：id&quot;</span>);  <br>        result.put(<span class="hljs-string">&quot;success&quot;</span>, <span class="hljs-string">&quot;false&quot;</span>);  <br>        <span class="hljs-keyword">return</span> result.toJSONString();  <br>    &#125;  <br>  <br>    logger.info(<span class="hljs-string">&quot;【XSS】用户输入内容是：&quot;</span> + id);  <br>    <span class="hljs-type">JSONObject</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();  <br>    result.put(<span class="hljs-string">&quot;data&quot;</span>, id);  <br>    result.put(<span class="hljs-string">&quot;success&quot;</span>, <span class="hljs-string">&quot;true&quot;</span>);  <br>    <span class="hljs-keyword">return</span> result.toJSONString();  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例1：-4"><a href="#安全代码-示例1：-4" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h4><p>对用户输入内容进行转义，也可以自己写一个过滤的方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs java"> <span class="hljs-meta">@RequestMapping(&quot;/xssFix&quot;)</span>  <br>    <span class="hljs-meta">@ResponseBody</span>  <br>    <span class="hljs-meta">@Override</span>    <span class="hljs-keyword">public</span> String <span class="hljs-title function_">vulnFix</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam(&quot;id&quot;)</span> String id)</span> &#123;  <br>  <br>        <span class="hljs-keyword">if</span> (id == <span class="hljs-literal">null</span> || id == <span class="hljs-string">&quot;&quot;</span>) &#123;  <br>            logger.error(<span class="hljs-string">&quot;【XSS】用户输入内容为空&quot;</span>);  <br>            <span class="hljs-type">JSONObject</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();  <br>            result.put(<span class="hljs-string">&quot;data&quot;</span>, <span class="hljs-string">&quot;请输入内容，参数为：id&quot;</span>);  <br>            result.put(<span class="hljs-string">&quot;success&quot;</span>, <span class="hljs-string">&quot;false&quot;</span>);  <br>            <span class="hljs-keyword">return</span> result.toJSONString();  <br>        &#125;  <br>        logger.info(<span class="hljs-string">&quot;【XSS-修复】用户输入内容是：&quot;</span> + id);  <br>        <span class="hljs-type">JSONObject</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();  <br>        result.put(<span class="hljs-string">&quot;data&quot;</span>, HtmlUtils.htmlEscape(id));  <br>        result.put(<span class="hljs-string">&quot;success&quot;</span>, <span class="hljs-string">&quot;true&quot;</span>);  <br>        <span class="hljs-keyword">return</span> result.toJSONString();  <br>  <br>    &#125;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="ssrf漏洞原理"><a href="#ssrf漏洞原理" class="headerlink" title="ssrf漏洞原理"></a>ssrf漏洞原理</h2><h3 id="代码审计-5"><a href="#代码审计-5" class="headerlink" title="代码审计"></a>代码审计</h3><h4 id="漏洞代码-示例1：-6"><a href="#漏洞代码-示例1：-6" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p>产生原因：获取外部URL后，未进行过滤直接发起网络请求，如下 1，2处</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title function_">URLConnection</span><span class="hljs-params">(String url)</span> &#123;<br>    <span class="hljs-keyword">try</span> &#123;<br>        <span class="hljs-type">URL</span> <span class="hljs-variable">u</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">URL</span>(url); <span class="hljs-comment">// 1. 直接接收外部传入的 url </span><br>        <span class="hljs-type">URLConnection</span> <span class="hljs-variable">conn</span> <span class="hljs-operator">=</span> u.openConnection(); <span class="hljs-comment">// 2. 直接发起网络请求</span><br>        <span class="hljs-type">BufferedReader</span> <span class="hljs-variable">reader</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">BufferedReader</span>(<span class="hljs-keyword">new</span> <span class="hljs-title class_">InputStreamReader</span>(conn.getInputStream()));<br>        String content;<br>        <span class="hljs-type">StringBuffer</span> <span class="hljs-variable">html</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">StringBuffer</span>();<br><br>        <span class="hljs-keyword">while</span> ((content = reader.readLine()) != <span class="hljs-literal">null</span>) &#123;<br>            html.append(content);<br>        &#125;<br>        reader.close();<br>        <span class="hljs-keyword">return</span> html.toString();<br><br>    &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>        <span class="hljs-keyword">return</span> e.getMessage();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例1：-5"><a href="#安全代码-示例1：-5" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">URLConnection3</span><span class="hljs-params">(String url)</span> &#123;<br>    <span class="hljs-keyword">if</span> (!Security.isHttp(url)) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;不允许非http/https协议!!!&quot;</span>;<br>    &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!Security.isWhite(url)) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;非可信域名！&quot;</span>;<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-keyword">return</span> HttpClientUtil.URLConnection(url);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="RCE漏洞原理"><a href="#RCE漏洞原理" class="headerlink" title="RCE漏洞原理"></a>RCE漏洞原理</h2><h3 id="代码审计-6"><a href="#代码审计-6" class="headerlink" title="代码审计"></a>代码审计</h3><h4 id="漏洞代码-示例1：-7"><a href="#漏洞代码-示例1：-7" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p>产生原因：new ProcessBuilder(command).start()执行的代码输入可控</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title function_">processbuilderVul</span><span class="hljs-params">(String filepath)</span> <span class="hljs-keyword">throws</span> IOException &#123;<br>    String[] cmdList = &#123;<span class="hljs-string">&quot;sh&quot;</span>, <span class="hljs-string">&quot;-c&quot;</span>, <span class="hljs-string">&quot;ls -l &quot;</span> + filepath&#125;;<br>    <span class="hljs-type">ProcessBuilder</span> <span class="hljs-variable">pb</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ProcessBuilder</span>(cmdList);<br>    pb.redirectErrorStream(<span class="hljs-literal">true</span>);<br>    <span class="hljs-type">Process</span> <span class="hljs-variable">process</span> <span class="hljs-operator">=</span> pb.start();<br><br>    <span class="hljs-comment">// 获取命令的输出</span><br>    <span class="hljs-type">InputStream</span> <span class="hljs-variable">inputStream</span> <span class="hljs-operator">=</span> process.getInputStream();<br>    <span class="hljs-type">BufferedReader</span> <span class="hljs-variable">reader</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">BufferedReader</span>(<span class="hljs-keyword">new</span> <span class="hljs-title class_">InputStreamReader</span>(inputStream));<br>    String line;<br>    <span class="hljs-type">StringBuilder</span> <span class="hljs-variable">output</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">StringBuilder</span>();<br>    <span class="hljs-keyword">while</span> ((line = reader.readLine()) != <span class="hljs-literal">null</span>) &#123;<br>        output.append(line).append(<span class="hljs-string">&quot;\n&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> output.toString();<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="漏洞代码-示例2：-1"><a href="#漏洞代码-示例2：-1" class="headerlink" title="漏洞代码 示例2："></a>漏洞代码 示例2：</h4><p>产生原因： Runtime.getRuntime().exec(cmd)内容可控</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title function_">vul</span><span class="hljs-params">(String cmd)</span> &#123;<br>    <span class="hljs-type">StringBuilder</span> <span class="hljs-variable">sb</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">StringBuilder</span>();<br>    <span class="hljs-keyword">try</span> &#123;<br>        <span class="hljs-type">Process</span> <span class="hljs-variable">proc</span> <span class="hljs-operator">=</span> Runtime.getRuntime().exec(cmd);<br>        <span class="hljs-type">InputStream</span> <span class="hljs-variable">fis</span> <span class="hljs-operator">=</span> proc.getInputStream();<br>        <span class="hljs-type">InputStreamReader</span> <span class="hljs-variable">isr</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">InputStreamReader</span>(fis);<br>        <span class="hljs-type">BufferedReader</span> <span class="hljs-variable">br</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">BufferedReader</span>(isr);<br>     ...<br></code></pre></td></tr></table></figure>
+
+<h4 id="漏洞代码-示例3："><a href="#漏洞代码-示例3：" class="headerlink" title="漏洞代码 示例3："></a>漏洞代码 示例3：</h4><h4 id="安全代码-示例1：-6"><a href="#安全代码-示例1：-6" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">// 自定义黑名单，这里过滤了常见的管道符，可自行添加</span><br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">checkOs</span><span class="hljs-params">(String content)</span> &#123;<br>    String[] black_list = &#123;<span class="hljs-string">&quot;|&quot;</span>, <span class="hljs-string">&quot;,&quot;</span>, <span class="hljs-string">&quot;&amp;&quot;</span>, <span class="hljs-string">&quot;&amp;&amp;&quot;</span>, <span class="hljs-string">&quot;;&quot;</span>, <span class="hljs-string">&quot;||&quot;</span>&#125;;<br>    <span class="hljs-keyword">for</span> (String s : black_list) &#123;<br>        <span class="hljs-keyword">if</span> (content.contains(s)) &#123;<br>            <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>        &#125;<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>&#125;<br>   <br></code></pre></td></tr></table></figure>
+
+<h2 id="表达式注入"><a href="#表达式注入" class="headerlink" title="表达式注入"></a>表达式注入</h2><h3 id="代码审计-7"><a href="#代码审计-7" class="headerlink" title="代码审计"></a>代码审计</h3><h4 id="漏洞代码-示例1：-8"><a href="#漏洞代码-示例1：-8" class="headerlink" title="漏洞代码 示例1："></a>漏洞代码 示例1：</h4><p> 产生原因：默认的StandardEvaluationContext<a target="_blank" rel="noopener" href="http://192.168.47.15:8888/vulnapi/SPEL/vul?ex=100-1%E6%9D%83%E9%99%90%E8%BF%87%E5%A4%A7%EF%BC%8C%E7%94%A8%E6%88%B7%E8%BE%93%E5%85%A5%E7%9A%84%E8%A1%A8%E8%BE%BE%E5%BC%8F%E8%A2%AB%E7%9B%B4%E6%8E%A5%E8%A7%A3%E6%9E%90%E5%92%8C%E6%89%A7%E8%A1%8C">http://192.168.47.15:8888/vulnapi/SPEL/vul?ex=100-1权限过大，用户输入的表达式被直接解析和执行</a> PoC: T(java.lang.Runtime).getRuntime().exec(%22open%20-a%20Calculator%22)</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> String <span class="hljs-title function_">vul</span><span class="hljs-params">(String ex)</span> &#123;<br>    <span class="hljs-type">ExpressionParser</span> <span class="hljs-variable">parser</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">SpelExpressionParser</span>();<br><br>    <span class="hljs-type">EvaluationContext</span> <span class="hljs-variable">evaluationContext</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">StandardEvaluationContext</span>();<br><br>    <span class="hljs-type">Expression</span> <span class="hljs-variable">exp</span> <span class="hljs-operator">=</span> parser.parseExpression(ex);<br>    <span class="hljs-type">String</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> exp.getValue(evaluationContext).toString();<br>    <span class="hljs-keyword">return</span> result;<br>&#125; <br></code></pre></td></tr></table></figure>
+
+<h4 id="安全代码-示例1：-7"><a href="#安全代码-示例1：-7" class="headerlink" title="安全代码 示例1："></a>安全代码 示例1：</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * SimpleEvaluationContext 旨在仅支持 SpEL 语言语法的一个子集。它不包括 Java 类型引用，构造函数和 bean 引用</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">spelSafe</span><span class="hljs-params">(String ex)</span> &#123;<br>    <span class="hljs-type">ExpressionParser</span> <span class="hljs-variable">parser</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">SpelExpressionParser</span>();<br><br>    <span class="hljs-type">EvaluationContext</span> <span class="hljs-variable">simpleContext</span> <span class="hljs-operator">=</span> SimpleEvaluationContext.forReadOnlyDataBinding().build();<br><br>    <span class="hljs-type">Expression</span> <span class="hljs-variable">exp</span> <span class="hljs-operator">=</span> parser.parseExpression(ex);<br>    <span class="hljs-type">String</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> exp.getValue(simpleContext).toString();<br>    <span class="hljs-keyword">return</span> result;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" class="category-chain-item">学习笔记</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E7%AC%94%E8%AE%B0/" class="print-no-link">#笔记</a>
+      
+        <a href="/tags/%E6%95%99%E7%A8%8B/" class="print-no-link">#教程</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>回归基本功</div>
+      <div>https://hex-neo.github.io/2026/03/18/java安全/回归基本功/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>hex</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月18日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/16/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/%E5%BA%8F%E5%88%97%E5%8C%96%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/JAVA%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" title="JAVA反序列化">
+                        <span class="hidden-mobile">JAVA反序列化</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    function isExpandAllEnabled() {
+      return CONFIG.toc && CONFIG.toc.expand_all === true;
+    }
+    function expandAllToc() {
+      if (!isExpandAllEnabled()) { return; }
+      jQuery('#toc-body .tocbot-is-collapsed').removeClass('tocbot-is-collapsed');
+    }
+    function updateTocToggle($li, $childList) {
+      var $toggle = $li.children('.toc-toggle');
+      if ($toggle.length === 0) { return; }
+      var collapsed = $childList.hasClass('tocbot-is-collapsed');
+      $toggle
+        .toggleClass('toc-toggle-collapsed', collapsed)
+        .toggleClass('toc-toggle-expanded', !collapsed);
+    }
+    function bindTocToggle() {
+      if (!isExpandAllEnabled()) { return; }
+      jQuery('#toc-body .toc-list-item').each(function() {
+        var $li = jQuery(this);
+        var $childList = $li.children('ol');
+        if ($childList.length === 0) {
+          if ($li.children('.toc-toggle').length === 0) {
+            $li.prepend('<span class="toc-toggle toc-toggle-placeholder" aria-hidden="true">›</span>');
+          }
+          return;
+        }
+
+        if ($li.children('.toc-toggle').length === 0) {
+          $li.prepend('<span class="toc-toggle toc-toggle-expanded" aria-hidden="true">›</span>');
+        }
+        updateTocToggle($li, $childList);
+      });
+      jQuery('#toc-body').off('click.tocToggle').on('click.tocToggle', '.toc-toggle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $li = jQuery(this).parent('.toc-list-item');
+        var $childList = $li.children('ol');
+        if ($childList.length === 0) { return; }
+        $childList.toggleClass('tocbot-is-collapsed');
+        updateTocToggle($li, $childList);
+      });
+      if (!window.__tocToggleObserver) {
+        window.__tocToggleObserver = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) {
+            if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') { return; }
+            var $list = jQuery(mutation.target);
+            var $li = $list.parent('.toc-list-item');
+            if ($li.length === 0) { return; }
+            updateTocToggle($li, $list);
+          });
+        });
+        jQuery('#toc-body ol').each(function() {
+          window.__tocToggleObserver.observe(this, { attributes: true });
+        });
+      }
+    }
+    var tocConfig = Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc);
+    if (isExpandAllEnabled()) {
+      tocConfig.collapseDepth = 6;
+    }
+    window.tocbot.init(tocConfig);
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+    expandAllToc();
+    bindTocToggle();
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+        expandAllToc();
+        bindTocToggle();
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
